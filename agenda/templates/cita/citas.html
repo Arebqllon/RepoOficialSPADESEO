@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block cuerpo %}
+<div class="table">
+    <h1>Clientes</h1>
+
+    <a href="{% url 'agenda:crear_citas' %}" class="btn">Crear Cita</a>
+    <br><br>
+
+    <table class="table">
+    <tr>
+        <th>ID</th>
+        <th>Cliente</th>
+        <th>Fecha</th>
+        <th>Hora</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+
+    </tr>
+    {% for i in datos %}
+
+    <tr>
+        <td>{{ i.id }}</td>
+        <td>{{ i.cliente.nombre }} - {{ i.cliente.apellido }}</td>
+        <td>{{ i.fecha }}</td>
+        <td>{{ i.horas }}</td>
+        <td>{{ i.estado }}</td>
+        <td>
+            <a href="{% url 'agenda:actualizar_cita' i.id %}" class="btn">Editar</a>
+            <a href="{% url 'agenda:eliminar_cita' i.id %}" class="btn">Eliminar</a>
+        </td>
+
+    </tr>
+    {% endfor %}
+    </table>
+</div>
+{% endblock %}

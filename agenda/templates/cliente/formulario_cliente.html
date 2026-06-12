@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block cuerpo %}
+
+<div class="card form-card">
+
+{% if datos %}
+    <h1>Actualizar cliente: {{ datos }}</h1>
+{% else %}
+    <h1>Crear cliente</h1>
+
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="fila">
+        <div class="col">
+            <label>Nombre</label>
+            <input value="{{ datos.nombre }}" type="text" name="nombre" placeholder="Nombre"><br><br>
+            <label>Apellido</label>
+            <input value="{{ datos.apellido }}" type="text" name="apellido" placeholder="Apellido"><br><br>
+
+        </div>
+        <div class="col">
+            <label>Telefono</label>
+            <input value="{{ datos.telefono }}" type="text" name="telefono" placeholder="Telefono"><br><br>
+            <label>Email</label>
+            <input value="{{ datos.email }}" type="email" name="email" placeholder="Email"><br><br>
+
+        </div>
+
+    </div>
+    <button type="submit" class="btn">Guardar</button>
+</form>
+</div>
+{% endblock %}
+
+
+
+

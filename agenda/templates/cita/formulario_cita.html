@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block cuerpo %}
+
+<div class="card form-card">
+
+{% if datos %}
+    <h1>Actualizar Cita</h1>
+{% else %}
+    <h1>Crear Cita</h1>
+
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="fila">
+        <div class="col">
+            <label>Cliente</label><br>
+            <select name="cliente">
+                {% for c in clientes %}
+                    <option value="{{ c.id }}">
+                        {{ c.nombre }} {{ c.apellido }}
+                    </option>
+                {% endfor %}
+
+            </select>
+        </div>
+
+        <div class="col">
+            <label>Fecha</label><br>
+            <input type="date" name="fecha"><br><br>
+
+            <label>Hora</label><br>
+            <input type="time" name="horas">
+
+        </div>
+    </div>
+    <div class="estado">
+        <label>Estado</label><br>
+        <select name="estado">
+            <option value="Pendiente">Pendiente</option>
+            <option value="Confirmada">Confirmada</option>
+            <option value="Cancelada">Cancelada</option>
+        </select>
+
+    </div>
+
+    <button type="submit">Guardar</button>
+</form>
+</div>
+
+{% endblock %}

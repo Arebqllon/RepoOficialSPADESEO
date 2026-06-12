@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Panel de Control - Administrador{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold text-dark">Panel de Control <span style="color: var(--primary);">SpaDeseo</span></h2>
+    <span class="badge bg-secondary p-2">Rol: Administrador</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 20px;">
+            <div class="fs-1 mb-2" style="color: var(--primary);"><i class="fa-solid fa-users"></i></div>
+            <h5 class="text-muted mb-1">Clientes Registrados</h5>
+            <h2 class="fw-bold m-0">{{ total_clientes }}</h2>
+            <a href="{% url 'agenda:clientes' %}" class="btn btn-sm btn-outline-secondary mt-3 rounded-pill">Gestionar</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 20px;">
+            <div class="fs-1 mb-2" style="color: var(--rosa-banner);"><i class="fa-solid fa-calendar-check"></i></div>
+            <h5 class="text-muted mb-1">Citas Agendadas</h5>
+            <h2 class="fw-bold m-0">{{ total_citas }}</h2>
+            <a href="{% url 'agenda:citas' %}" class="btn btn-sm btn-outline-secondary mt-3 rounded-pill">Ver Agenda</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm p-4 text-center" style="border-radius: 20px;">
+            <div class="fs-1 mb-2" style="color: #6c5ce7;"><i class="fa-solid fa-hand-sparkles"></i></div>
+            <h5 class="text-muted mb-1">Equipo Manicuristas</h5>
+            <h2 class="fw-bold m-0">{{ total_manicuristas }}</h2>
+            <a href="{% url 'agenda:manicuristas' %}" class="btn btn-sm btn-outline-secondary mt-3 rounded-pill">Ver Equipo</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
