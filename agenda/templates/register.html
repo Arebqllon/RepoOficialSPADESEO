@@ -1,0 +1,109 @@
+{% extends "login_base.html" %}
+
+{% block title %}Registro{% endblock %}
+
+{% block content %}
+
+<h2>Registrarse</h2>
+
+<form method="POST">
+    {% csrf_token %}
+
+    <input type="text" name="nombre"
+           placeholder="Nombre"
+           required
+           minlength="3"
+           maxlength="100"
+           pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+">
+
+    <input type="text" name="apellido"
+           placeholder="Apellido"
+           required
+           minlength="3"
+           maxlength="100"
+           pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+">
+
+    <input type="text" name="telefono"
+           placeholder="Teléfono"
+           required
+           minlength="10"
+           maxlength="15"
+           pattern="[0-9]+">
+
+    <input type="email" name="email"
+           placeholder="Correo"
+           required
+           maxlength="100">
+
+    <input type="password" name="password"
+           placeholder="Contraseña"
+           required
+           minlength="8"
+           maxlength="20"
+           pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).*">
+
+    <select name="rol" id="rol" required onchange="mostrarCampos()">
+        <option value="">Seleccione rol</option>
+        <option value="Cliente">Cliente</option>
+        <option value="Manicurista">Manicurista</option>
+    </select>
+
+    <!-- Campos Cliente -->
+    <div id="cliente_fields" style="display:none;">
+        <input type="text" name="color_piel" placeholder="Color de piel">
+    </div>
+
+    <!-- Campos Manicurista -->
+    <div id="manicurista_fields" style="display:none;">
+        <input type="text" name="especialidad" placeholder="Especialidad">
+        <input type="date" name="fecha_ingreso">
+    </div>
+
+    <button type="submit" class="btn-login">Registrarse</button>
+</form>
+
+<p>
+    ¿Ya tienes cuenta?
+    <a href="{% url 'agenda:login' %}">
+        Inicia sesión
+    </a>
+</p>
+
+<script>
+function mostrarCampos() {
+    let rol = document.getElementById("rol").value;
+
+    document.getElementById("cliente_fields").style.display = "none";
+    document.getElementById("manicurista_fields").style.display = "none";
+
+    if (rol === "Cliente") {
+        document.getElementById("cliente_fields").style.display = "block";
+    }
+
+    if (rol === "Manicurista") {
+        document.getElementById("manicurista_fields").style.display = "block";
+    }
+}
+
+
+const password = document.getElementById("password");
+
+password.addEventListener("input", function () {
+
+    const valor = password.value;
+
+    document.getElementById("longitud").className =
+        valor.length >= 8 ? "valido" : "";
+
+    document.getElementById("mayuscula").className =
+        /[A-Z]/.test(valor) ? "valido" : "";
+
+    document.getElementById("minuscula").className =
+        /[a-z]/.test(valor) ? "valido" : "";
+
+    document.getElementById("numero").className =
+        /\d/.test(valor) ? "valido" : "";
+});
+</script>
+
+{% endblock %}
