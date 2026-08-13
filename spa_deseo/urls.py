@@ -30,6 +30,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('agenda.urls')),
+    path('', include('agenda.urls')),
     path('api/auth/', include('rest_framework.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
 

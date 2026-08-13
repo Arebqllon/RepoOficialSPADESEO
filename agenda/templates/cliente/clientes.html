@@ -1,0 +1,85 @@
+
+{% extends 'dashboard.html' %}
+
+{% block content %}
+
+<div class="clientes-container">
+
+    <div class="clientes-header">
+        <div>
+            <h1>Clientes</h1>
+            <p>Lista de clientes registrados en el sistema</p>
+        </div>
+    </div>
+
+    <div class="clientes-grid">
+
+        {% for i in datos %}
+
+        <div class="cliente-card">
+
+            <div class="cliente-card-header">
+                <div class="cliente-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+
+                <span class="cliente-id">
+                    ID: {{ i.id }}
+                </span>
+            </div>
+
+            <h2>
+                {{ i.nombre }} {{ i.apellido }}
+            </h2>
+
+            <div class="cliente-info">
+
+                <div class="info-item">
+                    <i class="fas fa-phone"></i>
+                    <span>Teléfono:</span>
+                    <strong>{{ i.telefono }}</strong>
+                </div>
+
+                <div class="info-item">
+                    <i class="fas fa-envelope"></i>
+                    <span>Correo:</span>
+                    <strong>{{ i.email }}</strong>
+                </div>
+
+            </div>
+
+            <!-- <div class="cliente-actions">
+
+                 <a href="#"
+                   class="btn-editar">
+                    <i class="fas fa-pen"></i>
+                    Editar
+                </a>
+
+                <a href="#"
+                   class="btn-eliminar"
+                   onclick="return confirm('¿Deseas eliminar este cliente?')">
+                    <i class="fas fa-trash"></i>
+                    Eliminar
+                </a>
+            
+            </div> -->
+
+        </div>
+
+        {% empty %}
+
+        <div class="sin-clientes">
+            <i class="fas fa-users"></i>
+            <h3>No hay clientes registrados</h3>
+            <p>Cuando registres un cliente aparecerá aquí.</p>
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+{% endblock %}
+

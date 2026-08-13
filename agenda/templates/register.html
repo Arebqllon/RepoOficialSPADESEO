@@ -1,90 +1,164 @@
 {% extends "login_base.html" %}
 
-{% block title %}Registro{% endblock %}
+{% load static %}
+
+{% block title %}
+    Registro | Spa Deseo
+{% endblock %}
 
 {% block content %}
 
-<h2>Registrarse</h2>
+<div class="register-content">
 
-<form method="POST">
-    {% csrf_token %}
+    <!-- LOGO -->
+    <img
+        src="{% static 'img/logo-spa-deseo-fucsia.png' %}"
+        alt="Spa Deseo"
+        class="login-logo"
+    >
 
-    <input type="text" name="nombre"
-           placeholder="Nombre"
-           required
-           minlength="3"
-           maxlength="100"
-           pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+">
+    <h1>Crear cuenta</h1>
 
-    <input type="text" name="apellido"
-           placeholder="Apellido"
-           required
-           minlength="3"
-           maxlength="100"
-           pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+">
+    <p class="subtitulo">
+        Regístrate para disfrutar de Spa Deseo
+    </p>
 
-    <input type="text" name="telefono"
-           placeholder="Teléfono"
-           required
-           minlength="10"
-           maxlength="15"
-           pattern="[0-9]+">
 
-    <input type="email" name="email"
-           placeholder="Correo"
-           required
-           maxlength="100">
+    <form method="POST">
 
-    <input type="password" name="password"
-           placeholder="Contraseña"
-           required
-           minlength="8"
-           maxlength="20"
-           pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).*">
+        {% csrf_token %}
 
-    <select name="rol" id="rol" required onchange="mostrarCampos()">
-        <option value="">Seleccione rol</option>
-        <option value="Cliente">Cliente</option>
-        <option value="Manicurista">Manicurista</option>
-    </select>
+        <!-- NOMBRE Y APELLIDO -->
+        <div class="form-row">
 
-    <!-- Campos Cliente -->
-    <div id="cliente_fields" style="display:none;">
-        <input type="text" name="color_piel" placeholder="Color de piel">
-    </div>
+            <div class="form-group">
 
-    <!-- Campos Manicurista -->
-    <div id="manicurista_fields" style="display:none;">
-        <input type="text" name="especialidad" placeholder="Especialidad">
-        <input type="date" name="fecha_ingreso">
-    </div>
+                <label for="nombre">
+                    Nombre
+                </label>
 
-    <button type="submit" class="btn-login">Registrarse</button>
-</form>
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    placeholder="Tu nombre"
+                    required
+                    minlength="3"
+                    maxlength="100"
+                    pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+"
+                >
 
-<p>
-    ¿Ya tienes cuenta?
-    <a href="{% url 'agenda:login' %}">
-        Inicia sesión
-    </a>
-</p>
+            </div>
+
+            <div class="form-group">
+
+                <label for="apellido">
+                    Apellido
+                </label>
+
+                <input
+                    type="text"
+                    id="apellido"
+                    name="apellido"
+                    placeholder="Tu apellido"
+                    required
+                    minlength="3"
+                    maxlength="100"
+                    pattern="[A-Za-zÁÉÍÓÚáéíóúñÑ ]+"
+                >
+
+            </div>
+
+        </div>
+
+
+        <!-- TELÉFONO -->
+        <div class="form-group">
+
+            <label for="telefono">
+                Teléfono
+            </label>
+
+            <input
+                type="tel"
+                id="telefono"
+                name="telefono"
+                placeholder="3001234567"
+                required
+                minlength="10"
+                maxlength="15"
+                pattern="[0-9]+"
+            >
+
+        </div>
+
+
+        <!-- CORREO -->
+        <div class="form-group">
+
+            <label for="email">
+                Correo electrónico
+            </label>
+
+            <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="ejemplo@correo.com"
+                required
+                maxlength="100"
+            >
+
+        </div>
+
+
+        <!-- CONTRASEÑA -->
+        <div class="form-group">
+
+            <label for="password">
+                Contraseña
+            </label>
+
+            <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Crea una contraseña"
+                required
+                minlength="8"
+                maxlength="20"
+                pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).*"
+            >
+
+        </div>
+
+
+        <!-- BOTÓN -->
+        <button
+            type="submit"
+            class="btn-login"
+        >
+            Registrarse
+        </button>
+
+    </form>
+
+
+    <!-- LOGIN -->
+    <p class="registro">
+
+        ¿Ya tienes una cuenta?
+
+        <a href="{% url 'agenda:login' %}">
+            Inicia sesión
+        </a>
+
+    </p>
+
+</div>
+
 
 <script>
-function mostrarCampos() {
-    let rol = document.getElementById("rol").value;
-
-    document.getElementById("cliente_fields").style.display = "none";
-    document.getElementById("manicurista_fields").style.display = "none";
-
-    if (rol === "Cliente") {
-        document.getElementById("cliente_fields").style.display = "block";
-    }
-
-    if (rol === "Manicurista") {
-        document.getElementById("manicurista_fields").style.display = "block";
-    }
-}
-
 
 const password = document.getElementById("password");
 
@@ -92,18 +166,149 @@ password.addEventListener("input", function () {
 
     const valor = password.value;
 
-    document.getElementById("longitud").className =
-        valor.length >= 8 ? "valido" : "";
+    document.getElementById("longitud")
+        .classList.toggle(
+            "valido",
+            valor.length >= 8
+        );
 
-    document.getElementById("mayuscula").className =
-        /[A-Z]/.test(valor) ? "valido" : "";
+    document.getElementById("mayuscula")
+        .classList.toggle(
+            "valido",
+            /[A-Z]/.test(valor)
+        );
 
-    document.getElementById("minuscula").className =
-        /[a-z]/.test(valor) ? "valido" : "";
+    document.getElementById("minuscula")
+        .classList.toggle(
+            "valido",
+            /[a-z]/.test(valor)
+        );
 
-    document.getElementById("numero").className =
-        /\d/.test(valor) ? "valido" : "";
+    document.getElementById("numero")
+        .classList.toggle(
+            "valido",
+            /\d/.test(valor)
+        );
+
 });
+
 </script>
+
+
+<style>
+
+.register-content {
+    width: 100%;
+}
+
+
+/* NOMBRE Y APELLIDO */
+
+.form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+
+/* CAMPOS */
+
+.register-content .form-group {
+    text-align: left;
+    margin-bottom: 15px;
+}
+
+.register-content label {
+    display: block;
+    margin-bottom: 6px;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    color: #b82d63;
+}
+
+.register-content input {
+    width: 100%;
+    height: 45px;
+
+    padding: 0 13px;
+
+    border: 1px solid #f2b3ca;
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, 0.8);
+
+    color: #6d4657;
+
+    font-size: 13px;
+
+    outline: none;
+
+    transition: 0.3s;
+}
+
+.register-content input:focus {
+
+    border-color: #ef3f7c;
+
+    box-shadow:
+        0 0 0 3px rgba(239, 63, 124, 0.12);
+
+    background: white;
+}
+
+.register-content input::placeholder {
+    color: #b99aa9;
+}
+
+
+/* CONTRASEÑA */
+
+.password-help {
+
+    margin-top: 8px;
+
+    padding: 10px;
+
+    border-radius: 9px;
+
+    background: #fff0f6;
+}
+
+.password-help p {
+
+    margin: 3px 0;
+
+    font-size: 11px;
+
+    color: #b99aa9;
+
+    transition: 0.2s;
+}
+
+.password-help p.valido {
+
+    color: #e91e63;
+
+    font-weight: bold;
+}
+
+
+/* RESPONSIVE */
+
+@media (max-width: 500px) {
+
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+
+}
+
+</style>
 
 {% endblock %}
