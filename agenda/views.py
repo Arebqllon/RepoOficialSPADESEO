@@ -219,8 +219,50 @@ class GastosViewSet(viewsets.ModelViewSet):
 def index(request):
     return render(request, "index.html")
 
-
 def login(request):
+    if request.method == "POST":
+        usuario = request.POST.get("user")
+        clave = request.POST.get("password")
+
+        # Autenticar utilizando el sistema de usuarios de Django
+        user = authenticate(
+            request,
+            username=usuario,
+            password=clave
+        )
+
+        # Verificar que las credenciales sean correctas
+        if user is not None:
+
+            # Verificar que tenga un PerfilUsuario y un Rol
+            try:
+                rol = user.perfil.rol.nombre
+            except (AttributeError, PerfilUsuario.DoesNotExist):
+                messages.error(
+                    request,
+                    "El usuario no tiene un rol asignado."
+                )
+                return redirect("agenda:login")
+
+            # Iniciar sesión con Django
+            auth_login(request, user)
+
+            # Mantener temporalmente tu sesión actual
+            request.session["logueado"] = {
+                "id": user.id,
+                "nombre": user.get_full_name() or user.username,
+                "rol": rol
+            }
+
+            return redirect("agenda:dashboard")
+
+        # Si las credenciales no son correctas
+        messages.error(request, "Credenciales inválidas")
+        return redirect("agenda:login")
+
+    return render(request, "login.html")
+
+"""def login(request):
     if request.method == "POST":
         usuario = request.POST.get("user")
         clave = request.POST.get("password")
@@ -255,7 +297,7 @@ def login(request):
             messages.error(request, "Credenciales inválidas")
             return redirect("agenda:login")
 
-    return render(request, "login.html")
+    return render(request, "login.html") """
 
 def register(request):
     if request.method == "POST":

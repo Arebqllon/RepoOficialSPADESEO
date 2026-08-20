@@ -1,37 +1,92 @@
 from rest_framework import permissions
 from .models import PerfilUsuario
 
+
 class IsStaffOrReadOnly(permissions.BasePermission):
     """
-    Permiso personalizado para permitir que cualquiera lea los servicios,
-    pero solo los usuarios de staff puedan modificarlos o crearlos.
+    Permite consultar información, pero solo usuarios
+    administrativos pueden modificarla.
     """
+
     def has_permission(self, request, view):
-        # Permitir métodos seguros (GET, HEAD, OPTIONS) a cualquier usuario autenticado
+
+        if not request.user or not request.user.is_authenticated:
+            return False
+
         if request.method in permissions.SAFE_METHODS:
             return True
 
-        # Solo permitir POST, PUT, DELETE si el usuario es staff (is_staff=True)
-        return bool(request.user and request.user.is_staff)
+        return bool(request.user.is_staff)
 
 
 class TieneRolDB(permissions.BasePermission):
+    """
+    Comprueba el rol del usuario mediante PerfilUsuario.
+    """
+
     def has_permission(self, request, view):
-        # 1. Bloquear si el usuario no viene autenticado por Token
+
         if not request.user or not request.user.is_authenticated:
             return False
 
         try:
-            # 2. Consultar directamente nuestra tabla en la base de datos
             rol_del_usuario = request.user.perfil.rol.nombre
         except (AttributeError, PerfilUsuario.DoesNotExist):
-            return False # Bloquear si no tiene un perfil o rol asignado
+            return False
 
-        # 3. Definir directrices por Métodos HTTP
-        if request.method in permissions.SAFE_METHODS: # GET, HEAD, OPTIONS
-            # Permitir lectura a usuarios con roles ADMINISTRADOR o VENDEDOR
-            return rol_del_usuario in ['ADMINISTRADOR', 'VENDEDOR']
-        
-        # Para mutaciones (POST, PUT, PATCH, DELETE) sobre el modelo Servicio
-        # Restringir estrictamente a que su rol en la base de datos sea ADMINISTRADOR
-        return rol_del_usuario == 'ADMINISTRADOR'
+        if request.method in permissions.SAFE_METHODS:
+            return rol_del_usuario in [
+                "ADMINISTRADOR",
+                "CLIENTE",
+                "MANICURISTA"
+            ]
+
+        return rol_del_usuario == "ADMINISTRADOR"
+
+
+class EsAdministrador(permissions.BasePermission):
+    """
+    Permite el acceso únicamente al administrador.
+    """
+
+    def has_permission(self, request, view):
+
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        try:
+            return request.user.perfil.rol.nombre == "ADMINISTRADOR"
+        except (AttributeError, PerfilUsuario.DoesNotExist):
+            return False
+
+
+class EsCliente(permissions.BasePermission):
+    """
+    Permite el acceso únicamente a clientes.
+    """
+
+    def has_permission(self, request, view):
+
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        try:
+            return request.user.perfil.rol.nombre == "CLIENTE"
+        except (AttributeError, PerfilUsuario.DoesNotExist):
+            return False
+
+
+class EsManicurista(permissions.BasePermission):
+    """
+    Permite el acceso únicamente a manicuristas.
+    """
+
+    def has_permission(self, request, view):
+
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        try:
+            return request.user.perfil.rol.nombre == "MANICURISTA"
+        except (AttributeError, PerfilUsuario.DoesNotExist):
+            return False
