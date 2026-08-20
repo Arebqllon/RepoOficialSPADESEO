@@ -1,6 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Citas, Clientes, Manicurista, Servicios
-from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.contrib import messages
 from django.db import IntegrityError
@@ -26,12 +25,18 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import Servicios
-from .permissions import TieneRolDB
+from .permissions import *
 from .permissions import IsStaffOrReadOnly  # <--- Importa tu permiso
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum, Avg, Max, Min, Q  # Herramientas analíticas avanzadas
 
 from rest_framework.decorators import action
+from django.contrib.auth import authenticate, login as auth_login, logout as auth_logout
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from .utils import validar_password, requiere_rol
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -49,17 +54,12 @@ class LogoutView(APIView):
 # Vistas para las APIs
 class ClientesViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TieneRolDB]
 
 
     queryset = Clientes.objects.all()
     serializer_class = ClientesSerializer
 
-    @extend_schema(
-        summary="Lista todos los clientes"
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
 
 class ManicuristaViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
@@ -69,11 +69,6 @@ class ManicuristaViewSet(viewsets.ModelViewSet):
     queryset = Manicurista.objects.all()
     serializer_class = ManicuristaSerializer
 
-    @extend_schema(
-        summary="Lista de todas las manicuristas"
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
 
 class ServiciosViewSet(viewsets.ModelViewSet):
     queryset = Servicios.objects.all()
@@ -150,7 +145,7 @@ class ServiciosViewSet(viewsets.ModelViewSet):
 
 class CitasViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TieneRolDB]
     queryset = Citas.objects.all()
     serializer_class = CitasSerializer
 
@@ -162,7 +157,7 @@ class CitasViewSet(viewsets.ModelViewSet):
 
 class InventarioViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, EsAdministrador]
 
 
     queryset = Inventario.objects.all()
@@ -176,7 +171,7 @@ class InventarioViewSet(viewsets.ModelViewSet):
 
 class PagosViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TieneRolDB]
 
     queryset = Pagos.objects.all()
     serializer_class = PagosSerializer  
@@ -189,7 +184,7 @@ class PagosViewSet(viewsets.ModelViewSet):
 
 class ReciboViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, EsAdministrador]
     queryset = Recibo.objects.all()
     serializer_class = ReciboSerializer
 
@@ -201,7 +196,7 @@ class ReciboViewSet(viewsets.ModelViewSet):
 
 class GastosViewSet(viewsets.ModelViewSet):
     authentication_classes = [SessionAuthentication, TokenAuthentication]
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, EsAdministrador]
 
 
     queryset = Gastos.objects.all()
@@ -299,60 +294,122 @@ def login(request):
 
     return render(request, "login.html") """
 
+
+
+
 def register(request):
     if request.method == "POST":
-        rol = request.POST.get("rol")
 
-        if rol == "Cliente":
-            Clientes.objects.create(
-                nombre=request.POST.get("nombre"),
-                apellido=request.POST.get("apellido"),
-                telefono=request.POST.get("telefono"),
-                email=request.POST.get("email"),
-                password=request.POST.get("password"),
-                color_piel=request.POST.get("color_piel")
-            )
+        rol_nombre = request.POST.get("rol")
+        password = request.POST.get("password")
+        email = request.POST.get("email")
 
-        elif rol == "Manicurista":
-            Manicurista.objects.create(
-                nombre=request.POST.get("nombre"),
-                apellido=request.POST.get("apellido"),
-                telefono=request.POST.get("telefono"),
-                email=request.POST.get("email"),
-                password=request.POST.get("password"),
-                especialidad=request.POST.get("especialidad"),
-                fecha_ingreso=request.POST.get("fecha_ingreso")
-            )
+        # Solo permitimos estos dos roles desde el registro público
+        if rol_nombre not in ["CLIENTE", "MANICURISTA"]:
+            messages.error(request,"Rol de registro no válido.")
+            return redirect("agenda:register")
 
-        messages.success(request, "Cuenta creada correctamente")
-        return redirect("agenda:dashboard")
+        # Validar contraseña
+        error = validar_password(password)
+
+        if error:
+            messages.error(request, error)
+            return redirect("agenda:register")
+
+        # Verificar correo
+        if User.objects.filter(username=email).exists():
+            messages.error(request,"Ya existe una cuenta con ese correo.")
+            return redirect("agenda:register")
+
+        try:
+            with transaction.atomic():
+
+                # Crear usuario Django
+                user = User(
+                    username=email,
+                    email=email,
+                    first_name=request.POST.get("nombre"),
+                    last_name=request.POST.get("apellido")
+                )
+
+                user.set_password(password)
+                user.save()
+
+                # Buscar rol
+                rol = Rol.objects.get(nombre=rol_nombre)
+
+                # Crear perfil
+                PerfilUsuario.objects.create(
+                    user=user,
+                    rol=rol
+                )
+
+                # Crear información adicional
+                if rol_nombre == "CLIENTE":
+
+                    Clientes.objects.create(
+                        user=user,
+                        nombre=request.POST.get("nombre"),
+                        apellido=request.POST.get("apellido"),
+                        telefono=request.POST.get("telefono"),
+                        email=email,
+                        color_piel=request.POST.get("color_piel")
+                    )
+
+                elif rol_nombre == "MANICURISTA":
+
+                    Manicurista.objects.create(
+                        user=user,
+                        nombre=request.POST.get("nombre"),
+                        apellido=request.POST.get("apellido"),
+                        telefono=request.POST.get("telefono"),
+                        email=email,
+                        especialidad=request.POST.get("especialidad"),
+                        fecha_ingreso=request.POST.get("fecha_ingreso")
+                    )
+
+            messages.success(request,"Cuenta creada correctamente. Ahora puedes iniciar sesión.")
+
+            return redirect("agenda:login")
+
+        except Rol.DoesNotExist:
+            messages.error(request,f"El rol {rol_nombre} no existe en la base de datos.")
+
+        except Exception as e:
+            messages.error(request,f"Error al crear la cuenta: {e}")
 
     return render(request, "register.html")
 
-
+@login_required(login_url="agenda:login")
 def dashboard(request):
-    # 1. Validar si está logueado
-    if not request.session.get("logueado"):
+
+    try:
+        rol = request.user.perfil.rol.nombre
+    except (AttributeError, PerfilUsuario.DoesNotExist):
+        messages.error(request,"Tu usuario no tiene un rol asignado.")
         return redirect("agenda:login")
 
-    datos = request.session["logueado"]
-    rol = datos.get("rol")
+    datos = request.session.get("logueado", {})
 
-    # 2. Obtener el ID del cliente directamente desde la sesión
-    cliente_id_logueado = datos.get("id") if rol == "Cliente" else None
+    cliente_id_logueado = None
 
-    # 3. Traer citas del cliente logueado
+    if rol == "CLIENTE":
+        try:
+            cliente = Clientes.objects.get(user=request.user)
+            cliente_id_logueado = cliente.id
+        except Clientes.DoesNotExist:
+            messages.error(request,"No existe información de cliente asociada a tu usuario.")
+            return redirect("agenda:login")
+
     citas = Citas.objects.filter(
         cliente_id=cliente_id_logueado
-    ) if cliente_id_logueado else []
+    ) if cliente_id_logueado else Citas.objects.none()
 
-    # 4. Traer servicios y manicuristas
     servicios_disponibles = Servicios.objects.all()
     manicuristas_disponibles = Manicurista.objects.all()
 
-    # 5. Renderizar
     return render(request, "dashboard_copy.html", {
-        "usuario": datos["nombre"],
+        "usuario": request.user.get_full_name() or request.user.username,
         "rol": rol,
         "citas": citas,
         "servicios": servicios_disponibles,
@@ -360,7 +417,18 @@ def dashboard(request):
         "cliente_id_logueado": cliente_id_logueado
     })
 
+
+
 def logout(request):
+    auth_logout(request)
+
+    request.session.pop("logueado", None)
+
+    messages.success( request,"Sesión cerrada correctamente.")
+
+    return redirect("agenda:login")
+
+"""def logout(request):
     try:
         del request.session["logueado"]
         messages.success(request, "Sesión cerrada")
@@ -369,7 +437,8 @@ def logout(request):
         messages.warning(request, f"Error: {e}")
         return redirect("agenda:index")
     
-
+"""
+@requiere_rol("ADMINISTRADOR","MANICURISTA")
 def ver_cliente(request):
     c = Clientes.objects.all()
     contexto = {
@@ -377,34 +446,75 @@ def ver_cliente(request):
     }
     return render(request,"cliente/clientes.html", contexto)
 
-
+@requiere_rol("ADMINISTRADOR")
 def crear_cliente(request):
     if request.method == "POST":
         password = request.POST.get("password")
+        email = request.POST.get("email")
 
         error = validar_password(password)
 
         if error:
             messages.error(request, error)
-            return redirect("agenda:register_cliente")
+            return redirect("agenda:crear_cliente")
 
-        Clientes.objects.create(
-            nombre=request.POST.get("nombre"),
-            apellido=request.POST.get("apellido"),
-            telefono=request.POST.get("telefono"),
-            email=request.POST.get("email"),
-            password=password,
-            color_piel=request.POST.get("color_piel")
-        )
+        # Verificar que el correo no esté registrado
+        if User.objects.filter(username=email).exists():
+            messages.error(
+                request,
+                "Ya existe un usuario registrado con ese correo."
+            )
+            return redirect("agenda:crear_cliente")
 
-        messages.success(request, "Cuenta creada correctamente")
-        return redirect("agenda:login")
+        try:
+            with transaction.atomic():
+
+                # 1. Crear usuario de Django
+                user = User(
+                    username=email,
+                    email=email,
+                    first_name=request.POST.get("nombre"),
+                    last_name=request.POST.get("apellido")
+                )
+
+                # 2. Guardar contraseña de forma segura
+                user.set_password(password)
+                user.save()
+
+                # 3. Buscar el rol CLIENTE
+                rol = Rol.objects.get(nombre="CLIENTE")
+
+                # 4. Crear PerfilUsuario
+                PerfilUsuario.objects.create(
+                    user=user,
+                    rol=rol
+                )
+
+                # 5. Crear el cliente
+                Clientes.objects.create(
+                    user=user,
+                    nombre=request.POST.get("nombre"),
+                    apellido=request.POST.get("apellido"),
+                    telefono=request.POST.get("telefono"),
+                    email=email,
+                    color_piel=request.POST.get("color_piel")
+                )
+
+            messages.success(request,"Cliente creado correctamente.")
+
+            return redirect("agenda:login")
+
+        except Rol.DoesNotExist:
+            messages.error(request, "El rol CLIENTE no existe. Créalo primero.")
+
+        except Exception as e:
+            messages.error(request,f"Error al crear el cliente: {e}")
 
     return render(request, "cliente/crear_cliente.html")
 
 
 
-
+@requiere_rol("ADMINISTRADOR")
 def eliminar_cliente(request, id):
     try:
         q = Clientes.objects.get(pk=id)
@@ -418,7 +528,7 @@ def eliminar_cliente(request, id):
         messages.error(request,f"Error: {e}")
     return redirect("agenda:clientes")
 
-
+@requiere_rol("ADMINISTRADOR")
 def actualizar_cliente(request, id):
     if request.method == "POST":
         try:
@@ -440,17 +550,28 @@ def actualizar_cliente(request, id):
             "datos" : q
         }
         return render (request,"cliente/formulario_cliente.html", contexto)
-    
+
+
+#CRUD CITAS
+@login_required(login_url="agenda:login")
+@requiere_rol("CLIENTE")
 def mis_citas(request):
-    datos = request.session["logueado"]
-    citas = Citas.objects.filter(cliente_id=request.session["logueado"]["id"])
+
+    cliente = get_object_or_404(
+        Clientes,
+        user=request.user
+    )
+
+    citas = Citas.objects.filter(
+        cliente=cliente
+    )
 
     return render(request, "cliente/mis_citas.html", {
         "citas": citas
     })
 
 
-#CRUD CITAS
+@requiere_rol("ADMINISTRADOR")
 def ver_citas(request):
     c = Citas.objects.all()
     contexto ={
@@ -460,87 +581,15 @@ def ver_citas(request):
 
 
 
-
+@requiere_rol("CLIENTE")
+@transaction.atomic
 def crear_citas(request):
-    if request.method == "POST":
-        try:
-            cliente_id = request.session["logueado"]["id"]
-            manicurista_id = request.POST.get('manicurista')
-            servicios_id = request.POST.get('servicios')
-            fecha = request.POST.get('fecha')
-            hora = request.POST.get('hora')
-            # estado = 'Pendiente'
-
-            existe = Citas.objects.filter(
-                fecha=fecha,
-                hora=hora,
-                manicurista_id=manicurista_id
-            ).exists()
-
-            if existe:
-                messages.error(request, "Horario no disponible")
-                return redirect("agenda:crear_citas")
-
-            try:
-                servicios = Servicios.objects.get(pk=servicios_id)
-            except Servicios.DoesNotExist:
-                messages.error(request, "El servicio no existe")
-                return redirect("agenda:crear_citas")
-
-            c = Citas(
-                cliente_id=cliente_id,
-                fecha=fecha,
-                hora=hora,
-                manicurista_id=manicurista_id,
-                servicios_id=servicios_id,
-                #estado=estado,
-                total=servicios.precio
-            )
-
-            c.save()
-
-            """Pagos.objects.create(
-                cita=c,
-                metodo_pago="Pendiente",
-                estado="Pendiente",
-                valor=c.total
-            )"""
-
-            messages.success(request, "Cita agendada correctamente")
-
-            return redirect("agenda:mis_citas")
-
-        except Exception as e:
-            messages.error(request, f"Error: {e}")
-            return redirect("agenda:crear_citas")
-
-    else:
-        cliente = Clientes.objects.get(id=request.session["logueado"]["id"])
-        manicurista = Manicurista.objects.all()
-        servicios = Servicios.objects.all()
-
-        contexto = {
-            "cliente": cliente,
-            "manicurista": manicurista,
-            "servicios": servicios
-        }
-
-        return render(request, "cliente/crear_cita.html", contexto)
 
 
-
-def eliminar_citas(request, id):
-    try:
-        q = Citas.objects.get(pk=id)
-        q.delete()
-        messages.success(request,"Cita eliminada correctamente")
-    except Exception as e:
-        messages.error(request, f"Error: {e}")
-    return redirect("agenda:mis_citas")
-
-
-def actualizar_citas(request, id):
-    cita = get_object_or_404(Citas, pk=id)
+    cliente = get_object_or_404(
+        Clientes,
+        user=request.user
+    )
 
     if request.method == "POST":
         try:
@@ -548,53 +597,172 @@ def actualizar_citas(request, id):
             servicios_id = request.POST.get("servicios")
             fecha = request.POST.get("fecha")
             hora = request.POST.get("hora")
-            estado = request.POST.get("estado")
 
-            # Validar choque de horario
+            manicurista = get_object_or_404(
+                Manicurista,
+                pk=manicurista_id
+            )
+
+            servicio = get_object_or_404(
+                Servicios,
+                pk=servicios_id
+            )
+
+
             existe = Citas.objects.filter(
                 fecha=fecha,
                 hora=hora,
-                manicurista_id=manicurista_id
-            ).exclude(pk=id).exists()
+                manicurista=manicurista
+            ).exists()
 
             if existe:
-                messages.error(request, "Horario no disponible")
-                return redirect("agenda:actualizar_citas", id=id)
+                messages.error( request,"Horario no disponible para la manicurista seleccionada.")
+                return redirect("agenda:crear_citas")
 
-            # Servicio
-            servicio = Servicios.objects.get(pk=servicios_id)
+            cita = Citas.objects.create(
+                cliente=cliente,
+                manicurista=manicurista,
+                servicios=servicio,
+                fecha=fecha,
+                hora=hora,
+                total=servicio.precio
+            )
 
-            # Actualizar cita
-            cita.manicurista_id = manicurista_id
-            cita.servicios_id = servicios_id
+            messages.success(request, "Cita agendada correctamente.")
+
+            return redirect("agenda:mis_citas")
+
+        except Exception as e:
+            messages.error(
+                request,
+                f"Error al crear la cita: {e}"
+            )
+            return redirect("agenda:crear_citas")
+
+    # GET
+    manicuristas = Manicurista.objects.filter(estado="Activa")
+
+    servicios = Servicios.objects.filter(estado="Activo")
+
+    contexto = {
+        "cliente": cliente,
+        "manicurista": manicuristas,
+        "servicios": servicios
+    }
+
+    return render(
+        request, "cliente/crear_cita.html", contexto)
+
+@requiere_rol("CLIENTE")
+def eliminar_citas(request, id):
+    try:
+        cliente = get_object_or_404(
+            Clientes,
+            user=request.user
+        )
+
+        cita = get_object_or_404(
+            Citas,
+            pk=id,
+            cliente=cliente
+        )
+
+        cita.delete()
+
+        messages.success(request,"Cita eliminada correctamente")
+
+    except Exception as e:
+        messages.error( request, f"Error: {e}")
+
+    return redirect("agenda:mis_citas")
+
+@requiere_rol("CLIENTE")
+@transaction.atomic
+def actualizar_citas(request, id):
+
+    # Obtener el cliente relacionado con el usuario autenticado
+    cliente = get_object_or_404(
+        Clientes,
+        user=request.user
+    )
+
+    # Buscar la cita SOLO si pertenece al cliente autenticado
+    cita = get_object_or_404(
+        Citas,
+        pk=id,
+        cliente=cliente
+    )
+
+    if request.method == "POST":
+        try:
+            manicurista_id = request.POST.get("manicurista")
+            servicios_id = request.POST.get("servicios")
+            fecha = request.POST.get("fecha")
+            hora = request.POST.get("hora")
+
+            # Verificar que la manicurista exista
+            manicurista = get_object_or_404(
+                Manicurista,
+                pk=manicurista_id,
+                estado="Activa"
+            )
+
+            # Verificar que el servicio exista
+            servicio = get_object_or_404(
+                Servicios,
+                pk=servicios_id,
+                estado="Activo"
+            )
+
+            # Verificar choque de horario
+            existe = Citas.objects.filter(
+                fecha=fecha,
+                hora=hora,
+                manicurista=manicurista
+            ).exclude(
+                pk=cita.id
+            ).exists()
+
+            if existe:
+                messages.error(request, "Horario no disponible para la manicurista seleccionada.")
+                return redirect("agenda:actualizar_citas",id=id)
+
+            # Actualizar la cita
+            cita.manicurista = manicurista
+            cita.servicios = servicio
             cita.fecha = fecha
             cita.hora = hora
-            cita.estado = estado
             cita.total = servicio.precio
 
             cita.save()
 
-            messages.success(request, "Cita actualizada correctamente")
+            messages.success(request,"Cita actualizada correctamente.")
+
             return redirect("agenda:mis_citas")
 
         except Exception as e:
-            messages.error(request, f"Error: {e}")
-            return redirect("agenda:actualizar_citas", id=id)
+            messages.error(request,f"Error al actualizar la cita: {e}")
+
+            return redirect("agenda:actualizar_citas",id=id)
 
     # GET
     contexto = {
         "cita": cita,
-        "cliente": cita.cliente,
-        "manicurista": Manicurista.objects.all(),
-        "servicios": Servicios.objects.all(),
+        "cliente": cliente,
+        "manicurista": Manicurista.objects.filter(
+            estado="Activa"
+        ),
+        "servicios": Servicios.objects.filter(
+            estado="Activo"
+        ),
     }
 
-    return render(request, "cliente/actualizar_citas.html", contexto)
+    return render(request, "cliente/actualizar_citas.html",contexto)
 
 
 #CRUD MANICURISTA
 
-
+@requiere_rol("ADMINISTRADOR")
 def ver_manicurista(request):
     m = Manicurista.objects.all()
     contexto = {
@@ -602,34 +770,75 @@ def ver_manicurista(request):
     }
     return render(request,"manicurista/manicuristas.html", contexto)
 
-
+@requiere_rol("ADMINISTRADOR")
 def crear_manicurista(request):
     if request.method == "POST":
         password = request.POST.get("password")
+        email = request.POST.get("email")
 
         error = validar_password(password)
 
         if error:
             messages.error(request, error)
-            return redirect("agenda:register_manicurista")
+            return redirect("agenda:crear_manicuristas")
 
-        Manicurista.objects.create(
-            nombre=request.POST.get("nombre"),
-            apellido=request.POST.get("apellido"),
-            telefono=request.POST.get("telefono"),
-            email=request.POST.get("email"),
-            password=password,
-            especialidad=request.POST.get("especialidad"),
-            fecha_ingreso=request.POST.get("fecha_ingreso")
-        )
+        # Verificar correo
+        if User.objects.filter(username=email).exists():
+            messages.error(
+                request,
+                "Ya existe un usuario registrado con ese correo."
+            )
+            return redirect("agenda:crear_manicuristas")
 
-        messages.success(request, "Manicurista registrada")
-        return redirect("agenda:login")
+        try:
+            with transaction.atomic():
+
+                # 1. Crear usuario Django
+                user = User(
+                    username=email,
+                    email=email,
+                    first_name=request.POST.get("nombre"),
+                    last_name=request.POST.get("apellido")
+                )
+
+                # 2. Contraseña segura
+                user.set_password(password)
+                user.save()
+
+                # 3. Buscar rol MANICURISTA
+                rol = Rol.objects.get(nombre="MANICURISTA")
+
+                # 4. Crear perfil
+                PerfilUsuario.objects.create(
+                    user=user,
+                    rol=rol
+                )
+
+                # 5. Crear manicurista
+                Manicurista.objects.create(
+                    user=user,
+                    nombre=request.POST.get("nombre"),
+                    apellido=request.POST.get("apellido"),
+                    telefono=request.POST.get("telefono"),
+                    email=email,
+                    especialidad=request.POST.get("especialidad"),
+                    fecha_ingreso=request.POST.get("fecha_ingreso")
+                )
+
+            messages.success(request,"Manicurista registrada correctamente.")
+
+            return redirect("agenda:login")
+
+        except Rol.DoesNotExist:
+            messages.error(request,"El rol MANICURISTA no existe. Créalo primero.")
+
+        except Exception as e:
+            messages.error(request,f"Error al crear la manicurista: {e}")
 
     return render(request, "manicurista/crear_manicurista.html")
    
 
-
+@requiere_rol("ADMINISTRADOR")
 def eliminar_manicurista(request, id):
     try:
         m = Manicurista.objects.get(pk=id)
@@ -637,13 +846,13 @@ def eliminar_manicurista(request, id):
         messages.success(request, f"Manicurista '{m.nombre}' eliminada")
     except IntegrityError:
         messages.info(request,"Error, la manicurista cuenta con citas asociadas")
-    except Clientes.DoesNotExist:
+    except Manicurista.DoesNotExist:
         messages.warning(request,"La manicurista no existe.")
     except Exception as e:
         messages.error(request,f"Error: {e}")
     return redirect("agenda:manicuristas")
 
-
+@requiere_rol("ADMINISTRADOR")
 def actualizar_manicurista(request, id):
     if request.method == "POST":
         try:
@@ -670,7 +879,7 @@ def actualizar_manicurista(request, id):
 
 #CRUD SERVICIOS
 
-
+@requiere_rol("ADMINISTRADOR", "CLIENTE", "MANICURISTA")
 def ver_servicio(request):
     s = Servicios.objects.all()
     contexto = {
@@ -678,7 +887,7 @@ def ver_servicio(request):
     }
     return render(request,"servicio/servicios.html", contexto)
 
-
+@requiere_rol("ADMINISTRADOR")
 def crear_servicio(request):
     if request.method == "POST":
         try:
@@ -698,7 +907,7 @@ def crear_servicio(request):
         return render(request,"servicio/formulario_servicio.html")
    
 
-
+@requiere_rol("ADMINISTRADOR")
 def eliminar_servicio(request, id):
     try:
         s = Servicios.objects.get(pk=id)
@@ -706,13 +915,13 @@ def eliminar_servicio(request, id):
         messages.success(request, f"Servicio '{s.nombre}' eliminado")
     except IntegrityError:
         messages.info(request,"Error al eliminar el servicio")
-    except Clientes.DoesNotExist:
+    except Servicios.DoesNotExist:
         messages.warning(request,"El servicio no existe.")
     except Exception as e:
         messages.error(request,f"Error: {e}")
     return redirect("agenda:servicios")
 
-
+@requiere_rol("ADMINISTRADOR")
 def actualizar_servicio(request, id):
     if request.method == "POST":
         try:
@@ -734,7 +943,9 @@ def actualizar_servicio(request, id):
         }
         return render(request,"servicio/formulario_servicio.html", contexto)
 
+
 #CRUD INVENTARIO
+@requiere_rol("ADMINISTRADOR")
 def ver_inventario(request):
     i = Inventario.objects.all()
     contexto = {
@@ -742,6 +953,7 @@ def ver_inventario(request):
     }
     return render(request, "inventario/inventario.html", contexto)
 
+@requiere_rol("ADMINISTRADOR")
 def crear_inventario(request):
     if request.method == "POST":
         try:
@@ -761,6 +973,7 @@ def crear_inventario(request):
     else:
         return render(request,"inventario/formulario_inventario.html")
 
+@requiere_rol("ADMINISTRADOR")
 def eliminar_inventario(request, id):
     try:
         i = Inventario.objects.get(pk=id)
@@ -768,12 +981,13 @@ def eliminar_inventario(request, id):
         messages.success(request, f"Producto '{i.nombre}' se eliminó correctamente")
     except IntegrityError:
         messages.info(request,"Error al eliminar el producto")
-    except Clientes.DoesNotExist:
+    except Inventario.DoesNotExist:
         messages.warning(request,"El producto no existe.")
     except Exception as e:
         messages.error(request,f"Error: {e}")
     return redirect("agenda:inventario")
 
+@requiere_rol("ADMINISTRADOR")
 def actualizar_inventario(request, id):
     if request.method == "POST":
         try:
@@ -796,13 +1010,7 @@ def actualizar_inventario(request, id):
         }
         return render(request,"inventario/formulario_inventario.html", contexto)
 
-#CRUD PAGOS
-def ver_pagos(request):
-    p = Pagos.objects.all()
-    contexto = {
-        "datos" : p
-    }
-    return render(request, "pago/pago.html", contexto)
+
 
 
 def recibo(request, id):
@@ -813,6 +1021,7 @@ def recibo(request, id):
     return render(request,"recibo/recibo.html", contexto)
 
 #CRUD GASTOS
+@requiere_rol("ADMINISTRADOR")
 def ver_gasto(request):
     g = Gastos.objects.all()
     contexto = {
@@ -820,6 +1029,7 @@ def ver_gasto(request):
     }
     return render(request, "gastos/gastos.html", contexto)
 
+@requiere_rol("ADMINISTRADOR")
 def crear_gastos(request):
     if request.method == "POST":
         try:
@@ -839,6 +1049,7 @@ def crear_gastos(request):
     else:
         return render(request,"gastos/formulario_gastos.html")
 
+@requiere_rol("ADMINISTRADOR")
 def eliminar_gastos(request, id):
     try:
         g = Gastos.objects.get(pk=id)
@@ -846,12 +1057,13 @@ def eliminar_gastos(request, id):
         messages.success(request, f"Gasto eliminado correctamente")
     except IntegrityError:
         messages.info(request,"Error")
-    except Clientes.DoesNotExist:
+    except Gastos.DoesNotExist:
         messages.warning(request,"El gasto no existe.")
     except Exception as e:
         messages.error(request,f"Error: {e}")
     return redirect("agenda:gastos")
 
+@requiere_rol("ADMINISTRADOR")
 def actualizar_gastos(request, id):
     if request.method == "POST":
         try:
@@ -873,6 +1085,7 @@ def actualizar_gastos(request, id):
         }
         return render(request,"gastos/formulario_gastos.html", contexto)
 
+@requiere_rol("ADMINISTRADOR")
 def ver_pagos (request):
     p =Pagos.objects.all()
 
@@ -882,6 +1095,7 @@ def ver_pagos (request):
 
     return render(request, "pago/pago.html", contexto)
 
+@requiere_rol("ADMINISTRADOR")
 def crear_pago(request):
     if request.method  == "POST":
         try:
@@ -915,6 +1129,7 @@ def crear_pago(request):
         }
         return render(request, "pago/formulario_pago.html", contexto)
 
+@requiere_rol("ADMINISTRADOR")
 def eliminar_pago(request, id):
     try: 
         p =  Pagos.objects.get(pk=id)
@@ -924,31 +1139,51 @@ def eliminar_pago(request, id):
         messages.error(request, f"Error: {e}")
     return redirect("agenda:pagos")
 
-def actualizar_pago(request,id):
+@requiere_rol("ADMINISTRADOR")
+def actualizar_pago(request, id):
+
+    pago = get_object_or_404(
+        Pagos,
+        pk=id
+    )
+
     if request.method == "POST":
         try:
-            p= Pagos.objects.get(pk=id)
-            citas_id = request.POST.get('citas')
-            metodo_pago = request.POST.get('metodo_pago')
-            estado = request.POST.get('estado')
-            referencia = request.POST.get('referencia')
+            citas_id = request.POST.get("citas")
+            metodo_pago = request.POST.get("metodo_pago")
+            estado = request.POST.get("estado")
+            referencia = request.POST.get("referencia")
 
-            c= Citas.objects.get(pk=id)
-            p.citas_id = citas_id
-            p.metodo_pago = metodo_pago
-            p.estado = estado
-            p.referencia = referencia
-            p.valor = c.total
-            p.save()
-            messages.success(request, "Pago actualizado correctamente")
+            # Buscar la cita seleccionada
+            cita = get_object_or_404(
+                Citas,
+                pk=citas_id
+            )
+
+            # Actualizar el pago
+            pago.citas = cita
+            pago.metodo_pago = metodo_pago
+            pago.estado = estado
+            pago.referencia = referencia
+            pago.valor = cita.total
+
+            pago.save()
+
+            messages.success(request,"Pago actualizado correctamente")
+
+            return redirect("agenda:pagos")
+
         except Exception as e:
-            messages.error(request, f"Error: {e}")  
-        return redirect("agenda:pagos")
-    else:
-        p = Pagos.objects.get(pk=id)
-        c= Citas.objects.all()
-        contexto = {
-            "datos": p,
-            "citas": c
-        }
-        return render(request, "pago/formulario_pago.html", contexto)
+            messages.error(request,f"Error al actualizar el pago: {e}")
+
+            return redirect("agenda:actualizar_pago",id=id)
+
+    # GET
+    citas = Citas.objects.all()
+
+    contexto = {
+        "datos": pago,
+        "citas": citas
+    }
+
+    return render(request,"pago/formulario_pago.html",contexto)

@@ -4,6 +4,8 @@ from .models import *
 # Importamos la librería
 from rest_framework import serializers
 
+
+
 # Creamos una clase tipo serializador, para mapear nuestro modelo
 class ClientesSerializer(serializers.ModelSerializer):
     class Meta:

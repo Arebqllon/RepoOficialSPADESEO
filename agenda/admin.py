@@ -35,7 +35,6 @@ class ClientesAdmin(admin.ModelAdmin):
         "apellido",
         "telefono",
         "email",
-        "color_piel",
     ]
 
 

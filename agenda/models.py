@@ -18,12 +18,18 @@ class PerfilUsuario(models.Model):
 
     
 class Clientes(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cliente"
+    )
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     telefono = models.CharField(max_length=20)
     email = models.EmailField(max_length=100)
     password = models.CharField(max_length=100)
-    color_piel = models.CharField(max_length=100)
 
 
     def __str__(self):
@@ -31,6 +37,13 @@ class Clientes(models.Model):
 
 
 class Manicurista(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="manicurista"
+    )
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     telefono = models.CharField(max_length=20)
