@@ -30,6 +30,7 @@ class Clientes(models.Model):
     telefono = models.CharField(max_length=20)
     email = models.EmailField(max_length=100)
     password = models.CharField(max_length=100)
+    foto_perfil = models.ImageField(upload_to='perfiles/',null=True, blank=True)
 
 
     def __str__(self):
@@ -60,6 +61,7 @@ class Manicurista(models.Model):
         choices=ESTADO,
         default="Activa"
     )
+    foto_perfil = models.ImageField(upload_to='perfiles/',null=True, blank=True)
 
 
     def __str__(self):

@@ -1,169 +1,207 @@
 {% extends "dashboard.html" %}
 
+
 {% block content %}
 
+
 <div class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-        Mis Citas
-    </h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400">
-        Consulta, administra o modifica tus citas agendadas.
-    </p>
+   <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+       Mis Citas
+   </h1>
+   <p class="text-sm text-gray-500 dark:text-gray-400">
+       Consulta, administra o modifica tus citas agendadas.
+   </p>
 </div>
+
 
 <div class="space-y-6">
 
-    {% for cita in citas %}
-    <div class="bg-white dark:bg-darkCard rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
 
-        <!-- Encabezado -->
-        <div class="flex justify-between items-start mb-4">
-            <div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">
-                    {{ cita.servicio.nombre }}
-                </h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Estado:
-                    <span class="font-semibold text-pink-600">
-                        {{ cita.estado }}
-                    </span>
-                </p>
-            </div>
-
-            <span class="text-sm text-gray-400">
-                #{{ cita.id }}
-            </span>
-        </div>
-
-        <!-- Información -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
-            <div>
-                <p class="text-xs text-gray-400">Fecha</p>
-                <p class="font-medium text-gray-800 dark:text-white">
-                    {{ cita.fecha }}
-                </p>
-            </div>
-
-            <div>
-                <p class="text-xs text-gray-400">Hora</p>
-                <p class="font-medium text-gray-800 dark:text-white">
-                    {{ cita.hora }}
-                </p>
-            </div>
-
-            <div>
-                <p class="text-xs text-gray-400">Manicurista</p>
-                <p class="font-medium text-gray-800 dark:text-white">
-                    {{ cita.manicurista.nombre }} {{ cita.manicurista.apellido }}
-                </p>
-            </div>
-
-        </div>
-
-        <!-- Acciones -->
-        <div class="flex flex-wrap gap-3">
-
-            <!-- Editar -->
-            <a href="{% url 'agenda:actualizar_citas' cita.id %}"
-                class="px-4 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition">
-                Editar
-            </a>
-
-            <!-- Eliminar -->
-            <button data-url="{% url 'agenda:eliminar_citas' cita.id %}" onclick="abrirModal(this.dataset.url)"
-                class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
-                Eliminar
-            </button>
+   {% for cita in citas %}
+   <div class="bg-white dark:bg-darkCard rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
 
 
-        </div>
-    </div>
+       <!-- Encabezado -->
+       <div class="flex justify-between items-start mb-4">
+           <div>
+               <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+                   {{ cita.servicio.nombre }}
+               </h3>
+           </div>
 
 
-    {% empty %}
-    <div
-        class="bg-white dark:bg-darkCard rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 text-center">
-        <p class="text-gray-500 dark:text-gray-400">
-            Aún no tienes citas registradas.
-        </p>
+           <span class="text-sm text-gray-400">
+               #{{ cita.id }}
+           </span>
+       </div>
 
-        <a href="{% url 'agenda:crear_citas' %}"
-            class="inline-block mt-4 text-pink-600 font-semibold hover:text-pink-700">
-            Agendar una cita →
-        </a>
-    </div>
+
+       <!-- Información -->
+       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-grow items-center">
+
+
+           <div>
+               <p class="text-xs text-gray-400">Fecha</p>
+               <p class="font-medium text-gray-800 dark:text-white">
+                   {{ cita.fecha }}
+               </p>
+           </div>
+
+
+           <div>
+               <p class="text-xs text-gray-400">Hora</p>
+               <p class="font-medium text-gray-800 dark:text-white">
+                   {{ cita.hora }}
+               </p>
+           </div>
+
+
+           <div>
+               <p class="text-xs text-gray-400">Manicurista</p>
+               <p class="font-medium text-gray-800 dark:text-white">
+                   {{ cita.manicurista.nombre }} {{ cita.manicurista.apellido }}
+               </p>
+           </div>
+
+
+       </div>
+
+
+       <!-- Acciones -->
+       <div class="flex flex-wrap gap-3">
+
+
+           <!-- Editar -->
+           <a href="{% url 'agenda:actualizar_citas' cita.id %}"
+               class="px-4 py-2 rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 transition">
+               Editar
+           </a>
+
+
+           <!-- Eliminar -->
+           <button data-url="{% url 'agenda:eliminar_citas' cita.id %}" onclick="abrirModal(this.dataset.url)"
+               class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
+               Eliminar
+           </button>
+
+
+
+
+       </div>
+   </div>
+
+
+
+
+   {% empty %}
+   <div
+       class="bg-white dark:bg-darkCard rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 text-center">
+       <p class="text-gray-500 dark:text-gray-400">
+           Aún no tienes citas registradas.
+       </p>
+
+
+       <a href="{% url 'agenda:crear_citas' %}"
+           class="inline-block mt-4 text-pink-600 font-semibold hover:text-pink-700">
+           Agendar una cita →
+       </a>
+   </div>
 {% endfor %}
 {% endblock %}
 
+
 {% block modals %}
-    <!-- Modal Eliminar -->
-    
+   <!-- Modal Eliminar -->
+  
 <div id="modalEliminar"
-     class="fixed inset-0 bg-gray-900/50 hidden items-center justify-center z-[9999]">
+    class="fixed inset-0 bg-gray-900/50 hidden items-center justify-center z-[9999]">
 
-    <div class="bg-white dark:bg-darkCard rounded-xl p-6 w-[90%] max-w-md shadow-xl">
 
-        <h2 class="text-xl font-bold mb-3 text-gray-900 dark:text-white">
-            Cancelar cita
-        </h2>
+   <div class="bg-white dark:bg-darkCard rounded-xl p-6 w-[90%] max-w-md shadow-xl">
 
-        <p class="text-gray-600 dark:text-gray-300 mb-6">
-            ¿Estás seguro de cancelar esta cita?
-            Esta acción no se puede deshacer.
-        </p>
 
-        <div class="flex justify-end gap-3">
+       <h2 class="text-xl font-bold mb-3 text-gray-900 dark:text-white">
+           Cancelar cita
+       </h2>
 
-            <button
-                onclick="cerrarModal()"
-                class="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400">
-                Cancelar
-            </button>
 
-            <a id="btnConfirmarEliminar"
-               href="#"
-               class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-                Sí, eliminar
-            </a>
+       <p class="text-gray-600 dark:text-gray-300 mb-6">
+           ¿Estás seguro de cancelar esta cita?
+           Esta acción no se puede deshacer.
+       </p>
 
-        </div>
 
-    </div>
+       <div class="flex justify-end gap-3">
+
+
+           <button
+               onclick="cerrarModal()"
+               class="px-4 py-2 rounded-lg bg-gray-300 hover:bg-gray-400">
+               Cancelar
+           </button>
+
+
+           <a id="btnConfirmarEliminar"
+              href="#"
+              class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+               Sí, eliminar
+           </a>
+
+
+       </div>
+
+
+   </div>
+
 
 </div>
+
+
 
 
 <script>
 
-    function abrirModal(url) {
 
-        document
-            .getElementById("modalEliminar")
-            .classList.remove("hidden");
+   function abrirModal(url) {
 
-        document
-            .getElementById("modalEliminar")
-            .classList.add("flex");
 
-        document
-            .getElementById("btnConfirmarEliminar")
-            .href = url;
+       document
+           .getElementById("modalEliminar")
+           .classList.remove("hidden");
 
-    }
 
-    function cerrarModal() {
+       document
+           .getElementById("modalEliminar")
+           .classList.add("flex");
 
-        document
-            .getElementById("modalEliminar")
-            .classList.remove("flex");
 
-        document
-            .getElementById("modalEliminar")
-            .classList.add("hidden");
+       document
+           .getElementById("btnConfirmarEliminar")
+           .href = url;
 
-    }
+
+   }
+
+
+   function cerrarModal() {
+
+
+       document
+           .getElementById("modalEliminar")
+           .classList.remove("flex");
+
+
+       document
+           .getElementById("modalEliminar")
+           .classList.add("hidden");
+
+
+   }
+
 
 </script>
 
+
 {% endblock %}
+
+

@@ -1,0 +1,106 @@
+{% extends "dashboard.html" %}
+
+
+{% block content %}
+
+
+<!-- Encabezado de la página -->
+<div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   <div>
+       <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
+           Citas Asignadas
+       </h1>
+       <p class="text-sm text-gray-500 dark:text-gray-400">
+           Consulta las citas programadas con tus clientes y sus datos de contacto.
+       </p>
+   </div>
+</div>
+
+
+<div class="space-y-6">
+
+
+   {% for cita in citas %}
+   <div class="bg-white dark:bg-darkCard rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+
+
+       <!-- Encabezado de la tarjeta -->
+       <div class="flex justify-between items-center mb-4">
+           <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+               {{ cita.servicio.nombre }}
+           </h3>
+           <span class="text-sm text-gray-400 font-medium">
+               #{{ cita.id }}
+           </span>
+       </div>
+
+
+       <!-- Información de la cita y del cliente -->
+       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-center mb-6">
+           <div class="flex flex-col">
+               <span class="text-xs text-gray-400 uppercase tracking-wider">Fecha</span>
+               <span class="font-medium text-gray-800 dark:text-white mt-0.5">
+                   {{ cita.fecha }}
+               </span>
+           </div>
+
+
+           <div class="flex flex-col">
+               <span class="text-xs text-gray-400 uppercase tracking-wider">Hora</span>
+               <span class="font-medium text-gray-800 dark:text-white mt-0.5">
+                   {{ cita.hora }}
+               </span>
+           </div>
+
+
+           <div class="flex flex-col">
+               <span class="text-xs text-gray-400 uppercase tracking-wider">Cliente</span>
+               <span class="font-medium text-gray-800 dark:text-white mt-0.5">
+                   {{ cita.cliente.nombre }} {{ cita.cliente.apellido }}
+               </span>
+           </div>
+
+
+           <div class="flex flex-col">
+               <span class="text-xs text-gray-400 uppercase tracking-wider">Teléfono</span>
+               <span class="font-medium text-gray-800 dark:text-white mt-0.5">
+                   {{ cita.cliente.telefono }}
+               </span>
+           </div>
+
+
+           <div class="flex flex-col">
+               <span class="text-xs text-gray-400 uppercase tracking-wider">Correo</span>
+               <span class="font-medium text-gray-800 dark:text-white mt-0.5 truncate">
+                   {{ cita.cliente.email }}
+               </span>
+           </div>
+       </div>
+
+
+       <!-- Botón para enviar recordatorio por WhatsApp -->
+       <div class="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+           <a href="https://wa.me/{{ cita.cliente.telefono }}?text=Hola%20{{ cita.cliente.nombre }},%20te%20escribimos%20de%20SPA%20DESEO%20para%20recordarte%20tu%20cita%20de%20{{ cita.servicio.nombre }}%20el%20día%20{{ cita.fecha }}%20a%20las%20{{ cita.hora }}.%20¡Te%20esperamos!"
+              target="_blank"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition shadow-sm">
+               <i class="fa-brands fa-whatsapp text-base"></i> Enviar recordatorio
+           </a>
+       </div>
+
+
+   </div>
+
+
+   {% empty %}
+   <div class="bg-white dark:bg-darkCard rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 text-center">
+       <p class="text-gray-500 dark:text-gray-400">
+           No tienes citas asignadas por el momento.
+       </p>
+   </div>
+   {% endfor %}
+
+
+</div>
+{% endblock %}
+
+

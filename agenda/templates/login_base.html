@@ -1,331 +1,381 @@
 {% load static %}
 
+
 <!DOCTYPE html>
 <html lang="es">
 
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    <title>{% block title %}Spa Deseo{% endblock %}</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+   <title>{% block title %}Spa Deseo{% endblock %}</title>
 
-        body {
-            min-height: 100vh;
-            font-family: Arial, Helvetica, sans-serif;
 
-            display: flex;
-            justify-content: center;
-            align-items: center;
+   <style>
+       * {
+           box-sizing: border-box;
+           margin: 0;
+           padding: 0;
+       }
 
-            position: relative;
-            overflow: hidden;
 
-            /* Fondo rosado pastel */
-            background: linear-gradient(
-                135deg,
-                #ffdce9 0%,
-                #ffc6da 45%,
-                #ff9fbe 100%
-            );
-        }
+       body {
+           min-height: 100vh;
+           font-family: Arial, Helvetica, sans-serif;
 
-        /* =========================
-           MARCA DE AGUA
-        ========================== */
 
-        .watermark {
-            position: absolute;
+           display: flex;
+           justify-content: center;
+           align-items: center;
 
-            width: 1000px;
-            max-width: 100vw;
 
-            top: 50%;
-            left: 50%;
+           position: relative;
+           overflow: hidden;
 
-            transform: translate(-50%, -50%);
 
-            opacity: 0.10;
+           /* Fondo rosado pastel */
+           background: linear-gradient(
+               135deg,
+               #ffdce9 0%,
+               #ffc6da 45%,
+               #ff9fbe 100%
+           );
+       }
 
-            z-index: 0;
 
-            pointer-events: none;
+       /* =========================
+          MARCA DE AGUA
+       ========================== */
 
-            filter: saturate(1.5);
-        }
 
-        /* =========================
-           TARJETA
-        ========================== */
+       .watermark {
+           position: absolute;
 
-        .login-container {
-            position: relative;
 
-            z-index: 2;
+           width: 1000px;
+           max-width: 100vw;
 
-            width: 390px;
-            max-width: 90%;
 
-            padding: 40px;
+           top: 50%;
+           left: 50%;
 
-            border-radius: 25px;
 
-            background: rgba(255, 248, 251, 0.78);
+           transform: translate(-50%, -50%);
 
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
 
-            border: 1px solid rgba(255, 255, 255, 0.75);
+           opacity: 0.10;
 
-            box-shadow:
-                0 20px 45px rgba(210, 40, 105, 0.20);
 
-            text-align: center;
-        }
+           z-index: 0;
 
-        /* =========================
-           LOGO PEQUEÑO
-        ========================== */
 
-        .login-logo {
-            width: 150px;
-            max-width: 100%;
+           pointer-events: none;
 
-            display: block;
 
-            margin: 0 auto 12px;
-        }
+           filter: saturate(1.5);
+       }
 
-        /* =========================
-           TITULO
-        ========================== */
 
-        h1 {
-            color: #d92f70;
+       /* =========================
+          TARJETA
+       ========================== */
 
-            font-size: 30px;
 
-            margin-bottom: 8px;
-        }
+       .login-container {
+           position: relative;
 
-        .subtitulo {
-            color: #8d6879;
 
-            font-size: 14px;
+           z-index: 2;
 
-            margin-bottom: 28px;
-        }
 
-        /* =========================
-           MENSAJES
-        ========================== */
+           width: 390px;
+           max-width: 90%;
 
-        .mensaje {
-            margin-bottom: 20px;
 
-            padding: 12px;
+           padding: 40px;
 
-            border-radius: 10px;
 
-            background-color: #ffe4ef;
+           border-radius: 25px;
 
-            color: #c52d66;
 
-            font-size: 14px;
+           background: rgba(255, 248, 251, 0.78);
 
-            border-left: 4px solid #f43f7f;
-        }
 
-        /* =========================
-           CAMPOS
-        ========================== */
+           backdrop-filter: blur(14px);
+           -webkit-backdrop-filter: blur(14px);
 
-        .form-group {
-            text-align: left;
 
-            margin-bottom: 18px;
-        }
+           border: 1px solid rgba(255, 255, 255, 0.75);
 
-        .form-group label {
-            display: block;
 
-            margin-bottom: 7px;
+           box-shadow:
+               0 20px 45px rgba(210, 40, 105, 0.20);
 
-            color: #b82d63;
 
-            font-size: 14px;
+           text-align: center;
+       }
 
-            font-weight: 600;
-        }
 
-        .input-wrapper {
-            position: relative;
-        }
+       /* =========================
+          LOGO PEQUEÑO
+       ========================== */
 
-        .input-wrapper span {
-            position: absolute;
 
-            left: 15px;
-            top: 50%;
+       .login-logo {
+           width: 150px;
+           max-width: 100%;
 
-            transform: translateY(-50%);
 
-            color: #ef407c;
+           display: block;
 
-            font-size: 17px;
-        }
 
-        input {
-            width: 100%;
-            height: 48px;
+           margin: 0 auto 12px;
+       }
 
-            padding: 0 15px 0 45px;
 
-            border: 1px solid #f2b3ca;
+       /* =========================
+          TITULO
+       ========================== */
 
-            border-radius: 12px;
 
-            background: rgba(255, 255, 255, 0.80);
+       h1 {
+           color: #d92f70;
 
-            color: #6d4657;
 
-            font-size: 14px;
+           font-size: 30px;
 
-            outline: none;
 
-            transition: 0.3s;
-        }
+           margin-bottom: 8px;
+       }
 
-        input::placeholder {
-            color: #b99ca9;
-        }
 
-        input:focus {
-            border-color: #ef3f7c;
+       .subtitulo {
+           color: #8d6879;
 
-            box-shadow:
-                0 0 0 3px rgba(239, 63, 124, 0.12);
 
-            background: white;
-        }
+           font-size: 14px;
 
-        /* =========================
-           BOTÓN
-        ========================== */
 
-        .btn-login {
-            width: 100%;
-            height: 48px;
+           margin-bottom: 28px;
+       }
 
-            margin-top: 8px;
 
-            border: none;
+       /* =========================
+          MENSAJES
+       ========================== */
 
-            border-radius: 12px;
 
-            background: linear-gradient(
-                135deg,
-                #ff4f91,
-                #e91e63
-            );
+       .mensaje {
+           margin-bottom: 20px;
 
-            color: white;
 
-            font-size: 15px;
+           padding: 12px;
 
-            font-weight: bold;
 
-            cursor: pointer;
+           border-radius: 10px;
 
-            box-shadow:
-                0 8px 18px rgba(233, 30, 99, 0.25);
 
-            transition: 0.3s;
-        }
+           background-color: #ffe4ef;
 
-        .btn-login:hover {
-            transform: translateY(-2px);
 
-            box-shadow:
-                0 12px 25px rgba(233, 30, 99, 0.32);
-        }
+           color: #c52d66;
 
-        /* =========================
-           REGISTRO
-        ========================== */
 
-        .registro {
-            margin-top: 22px;
+           font-size: 14px;
 
-            font-size: 14px;
 
-            color: #795866;
-        }
+           border-left: 4px solid #f43f7f;
+       }
 
-        a {
-            color: #e91e63;
 
-            font-weight: bold;
+       /* =========================
+          CAMPOS
+       ========================== */
 
-            text-decoration: none;
-        }
 
-        a:hover {
-            text-decoration: underline;
-        }
+       .form-group {
+           text-align: left;
 
-        /* =========================
-           RESPONSIVE
-        ========================== */
 
-        @media (max-width: 500px) {
+           margin-bottom: 18px;
+       }
 
-            .login-container {
-                padding: 30px 24px;
-            }
 
-            .watermark {
-                width: 600px;
-            }
+       .form-group label {
+           display: block;
+           margin-bottom: 7px;
+           color: #b82d63;
+           font-size: 14px;
+           font-weight: 600;
+       }
 
-            h1 {
-                font-size: 26px;
-            }
-        }
-    </style>
+
+       .input-wrapper {
+           position: relative;
+       }
+
+
+       .input-wrapper span {
+           position: absolute;
+           left: 15px;
+           top: 50%;
+           transform: translateY(-50%);
+           color: #ef407c;
+           font-size: 17px;
+       }
+
+
+       input {
+           width: 100%;
+           height: 48px;
+           padding: 0 15px 0 45px;
+           border: 1px solid #f2b3ca;
+           border-radius: 12px;
+           background: rgba(255, 255, 255, 0.80);
+           color: #6d4657;
+           font-size: 14px;
+           outline: none;
+           transition: 0.3s;
+       }
+
+
+       input::placeholder {
+           color: #b99ca9;
+       }
+
+
+       input:focus {
+           border-color: #ef3f7c;
+           box-shadow:
+               0 0 0 3px rgba(239, 63, 124, 0.12);
+           background: white;
+       }
+
+
+       /* =========================
+          BOTÓN
+       ========================== */
+
+
+       .btn-login {
+           width: 100%;
+           height: 48px;
+           margin-top: 8px;
+           border: none;
+           border-radius: 12px;
+           background: linear-gradient(
+               135deg,
+               #ff4f91,
+               #e91e63
+           );
+
+
+           color: white;
+           font-size: 15px;
+           font-weight: bold;
+           cursor: pointer;
+           box-shadow:
+               0 8px 18px rgba(233, 30, 99, 0.25);
+
+
+           transition: 0.3s;
+       }
+
+
+       .btn-login:hover {
+           transform: translateY(-2px);
+           box-shadow:
+               0 12px 25px rgba(233, 30, 99, 0.32);
+       }
+
+
+       /* =========================
+          REGISTRO
+       ========================== */
+
+
+       .registro {
+           margin-top: 22px;
+           font-size: 14px;
+           color: #795866;
+       }
+
+
+       a {
+           color: #e91e63;
+           font-weight: bold;
+           text-decoration: none;
+       }
+
+
+       a:hover {
+           text-decoration: underline;
+       }
+
+
+       /* =========================
+          RESPONSIVE
+       ========================== */
+
+
+       @media (max-width: 500px) {
+
+
+           .login-container {
+               padding: 30px 24px;
+           }
+
+
+           .watermark {
+               width: 600px;
+           }
+
+
+           h1 {
+               font-size: 26px;
+           }
+       }
+   </style>
 </head>
+
 
 <body>
 
-    <!-- MARCA DE AGUA DEL LOGO -->
-    <img
-        src="{% static 'img/logo-spa-deseo-fucsia.png' %}"
-        alt=""
-        class="watermark"
-    >
 
-    <!-- TARJETA -->
-    <div class="login-container">
+   <!-- MARCA DE AGUA DEL LOGO -->
+   <img
+       src="{% static 'img/logo-spa-deseo-fucsia.png' %}"
+       alt=""
+       class="watermark"
+   >
 
-        {% if messages %}
-            {% for message in messages %}
-                <div class="mensaje">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
 
-        {% block content %}
-        {% endblock %}
+   <!-- TARJETA -->
+   <div class="login-container">
 
-    </div>
+
+       {% if messages %}
+           {% for message in messages %}
+               <div class="mensaje">
+                   {{ message }}
+               </div>
+           {% endfor %}
+       {% endif %}
+
+
+       {% block content %}
+       {% endblock %}
+
+
+   </div>
+
 
 </body>
 
+
 </html>
+
+

@@ -214,6 +214,199 @@ class GastosViewSet(viewsets.ModelViewSet):
 def index(request):
     return render(request, "index.html")
 
+@login_required(login_url="agenda:login")
+@requiere_rol("MANICURISTA","CLIENTE")
+def citas_asignadas(request):
+
+    manicurista = get_object_or_404(
+        Manicurista,
+        user=request.user
+    )
+
+    citas = Citas.objects.filter(
+        manicurista=manicurista
+    ).order_by('-fecha', '-hora')
+
+    return render(request, "manicurista/citas_asignadas.html", {
+        "citas": citas
+    })
+
+
+@login_required(login_url="agenda:login")
+@requiere_rol("CLIENTE", "MANICURISTA")
+def editar_perfil(request):
+
+    # =========================================================
+    # OBTENER EL ROL REAL DE LA BASE DE DATOS
+    # =========================================================
+
+    rol_db = request.user.perfil.rol.nombre
+
+    # El dashboard antiguo espera:
+    # "Cliente" / "Manicurista"
+    if rol_db == "CLIENTE":
+        rol = "Cliente"
+
+        usuario = get_object_or_404(
+            Clientes,
+            user=request.user
+        )
+
+    elif rol_db == "MANICURISTA":
+        rol = "Manicurista"
+
+        usuario = get_object_or_404(
+            Manicurista,
+            user=request.user
+        )
+
+    else:
+        messages.error(
+            request,
+            "Este usuario no puede editar este perfil."
+        )
+        return redirect("agenda:dashboard")
+
+    # =========================================================
+    # ACTUALIZAR PERFIL
+    # =========================================================
+
+    if request.method == "POST":
+
+        try:
+
+            usuario.nombre = request.POST.get(
+                "nombre",
+                ""
+            ).strip()
+
+            usuario.apellido = request.POST.get(
+                "apellido",
+                ""
+            ).strip()
+
+            usuario.telefono = request.POST.get(
+                "telefono",
+                ""
+            ).strip()
+
+            usuario.email = request.POST.get(
+                "email",
+                ""
+            ).strip()
+
+            # =================================================
+            # ELIMINAR FOTO
+            # =================================================
+
+            if request.POST.get("eliminar_foto") == "true":
+
+                if usuario.foto_perfil:
+                    usuario.foto_perfil.delete(
+                        save=False
+                    )
+
+                usuario.foto_perfil = None
+
+            # =================================================
+            # SUBIR FOTO
+            # =================================================
+
+            elif "foto_perfil" in request.FILES:
+
+                usuario.foto_perfil = request.FILES[
+                    "foto_perfil"
+                ]
+
+            # =================================================
+            # GUARDAR PERFIL
+            # =================================================
+
+            usuario.save()
+
+            # =================================================
+            # ACTUALIZAR USUARIO DJANGO
+            # =================================================
+
+            request.user.first_name = usuario.nombre
+            request.user.last_name = usuario.apellido
+            request.user.email = usuario.email
+
+            request.user.save(
+                update_fields=[
+                    "first_name",
+                    "last_name",
+                    "email"
+                ]
+            )
+
+            # =================================================
+            # ACTUALIZAR SESIÓN
+            # =================================================
+
+            datos = request.session.get(
+                "logueado",
+                {}
+            )
+
+            # MUY IMPORTANTE:
+            # El id de la sesión debe ser el ID de Clientes
+            # o Manicurista, porque otras vistas lo utilizan.
+
+            datos["id"] = usuario.id
+
+            datos["nombre"] = usuario.nombre
+
+            datos["apellido"] = usuario.apellido
+
+            datos["rol"] = rol
+
+            # =================================================
+            # GUARDAR URL DE LA FOTO
+            # =================================================
+
+            if usuario.foto_perfil:
+
+                datos["foto_url"] = usuario.foto_perfil.url
+
+            else:
+
+                datos["foto_url"] = None
+
+            request.session["logueado"] = datos
+            request.session.modified = True
+
+            messages.success(
+                request,
+                "Perfil actualizado correctamente"
+            )
+
+            return redirect(
+                "agenda:editar_perfil"
+            )
+
+        except Exception as e:
+
+            messages.error(
+                request,
+                f"Error al actualizar: {e}"
+            )
+
+    # =========================================================
+    # MOSTRAR FORMULARIO
+    # =========================================================
+
+    return render(
+        request,
+        "cliente/editar_perfil.html",
+        {
+            "usuario": usuario,
+            "rol": rol
+        }
+    )
+
+
+
 def login(request):
     if request.method == "POST":
         usuario = request.POST.get("user")
@@ -231,7 +424,7 @@ def login(request):
 
             # Verificar que tenga un PerfilUsuario y un Rol
             try:
-                rol = user.perfil.rol.nombre
+                rol = user.perfil.rol.nombre.capitalize()
             except (AttributeError, PerfilUsuario.DoesNotExist):
                 messages.error(
                     request,
@@ -297,17 +490,13 @@ def login(request):
 
 
 
+@transaction.atomic
 def register(request):
+
     if request.method == "POST":
 
-        rol_nombre = request.POST.get("rol")
         password = request.POST.get("password")
         email = request.POST.get("email")
-
-        # Solo permitimos estos dos roles desde el registro público
-        if rol_nombre not in ["CLIENTE", "MANICURISTA"]:
-            messages.error(request,"Rol de registro no válido.")
-            return redirect("agenda:register")
 
         # Validar contraseña
         error = validar_password(password)
@@ -318,65 +507,69 @@ def register(request):
 
         # Verificar correo
         if User.objects.filter(username=email).exists():
-            messages.error(request,"Ya existe una cuenta con ese correo.")
+            messages.error(
+                request,
+                "Ya existe una cuenta con ese correo."
+            )
             return redirect("agenda:register")
 
         try:
-            with transaction.atomic():
 
-                # Crear usuario Django
-                user = User(
-                    username=email,
-                    email=email,
-                    first_name=request.POST.get("nombre"),
-                    last_name=request.POST.get("apellido")
-                )
+            # 1. Buscar el rol CLIENTE
+            rol = Rol.objects.get(nombre="CLIENTE")
 
-                user.set_password(password)
-                user.save()
+            # 2. Crear usuario Django
+            user = User(
+                username=email,
+                email=email,
+                first_name=request.POST.get("nombre"),
+                last_name=request.POST.get("apellido")
+            )
 
-                # Buscar rol
-                rol = Rol.objects.get(nombre=rol_nombre)
+            # 3. Guardar contraseña de forma segura
+            user.set_password(password)
+            user.save()
 
-                # Crear perfil
-                PerfilUsuario.objects.create(
-                    user=user,
-                    rol=rol
-                )
+            # 4. La señal crea automáticamente el PerfilUsuario.
+            #    Aquí solamente le asignamos el rol.
+            perfil = PerfilUsuario.objects.get(user=user)
+            perfil.rol = rol
+            perfil.save()
 
-                # Crear información adicional
-                if rol_nombre == "CLIENTE":
+            # 5. Crear información del cliente
+            Clientes.objects.create(
+                user=user,
+                nombre=request.POST.get("nombre"),
+                apellido=request.POST.get("apellido"),
+                telefono=request.POST.get("telefono"),
+                email=email,
+    
+            )
 
-                    Clientes.objects.create(
-                        user=user,
-                        nombre=request.POST.get("nombre"),
-                        apellido=request.POST.get("apellido"),
-                        telefono=request.POST.get("telefono"),
-                        email=email,
-                        color_piel=request.POST.get("color_piel")
-                    )
-
-                elif rol_nombre == "MANICURISTA":
-
-                    Manicurista.objects.create(
-                        user=user,
-                        nombre=request.POST.get("nombre"),
-                        apellido=request.POST.get("apellido"),
-                        telefono=request.POST.get("telefono"),
-                        email=email,
-                        especialidad=request.POST.get("especialidad"),
-                        fecha_ingreso=request.POST.get("fecha_ingreso")
-                    )
-
-            messages.success(request,"Cuenta creada correctamente. Ahora puedes iniciar sesión.")
+            messages.success(
+                request,
+                "Cuenta creada correctamente. Ahora puedes iniciar sesión."
+            )
 
             return redirect("agenda:login")
 
         except Rol.DoesNotExist:
-            messages.error(request,f"El rol {rol_nombre} no existe en la base de datos.")
+
+            messages.error(
+                request,
+                "El rol CLIENTE no existe en la base de datos."
+            )
+
+            return redirect("agenda:register")
 
         except Exception as e:
-            messages.error(request,f"Error al crear la cuenta: {e}")
+
+            messages.error(
+                request,
+                f"Error al crear la cuenta: {e}"
+            )
+
+            return redirect("agenda:register")
 
     return render(request, "register.html")
 
@@ -384,7 +577,9 @@ def register(request):
 def dashboard(request):
 
     try:
+        
         rol = request.user.perfil.rol.nombre
+        
     except (AttributeError, PerfilUsuario.DoesNotExist):
         messages.error(request,"Tu usuario no tiene un rol asignado.")
         return redirect("agenda:login")
@@ -438,7 +633,7 @@ def logout(request):
         return redirect("agenda:index")
     
 """
-@requiere_rol("ADMINISTRADOR","MANICURISTA")
+@requiere_rol("ADMINISTRADOR","MANICURISTA", "CLIENTE")
 def ver_cliente(request):
     c = Clientes.objects.all()
     contexto = {
@@ -446,7 +641,7 @@ def ver_cliente(request):
     }
     return render(request,"cliente/clientes.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR",  "CLIENTE")
 def crear_cliente(request):
     if request.method == "POST":
         password = request.POST.get("password")
@@ -514,7 +709,7 @@ def crear_cliente(request):
 
 
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def eliminar_cliente(request, id):
     try:
         q = Clientes.objects.get(pk=id)
@@ -528,7 +723,7 @@ def eliminar_cliente(request, id):
         messages.error(request,f"Error: {e}")
     return redirect("agenda:clientes")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def actualizar_cliente(request, id):
     if request.method == "POST":
         try:
@@ -571,7 +766,7 @@ def mis_citas(request):
     })
 
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def ver_citas(request):
     c = Citas.objects.all()
     contexto ={
@@ -762,7 +957,7 @@ def actualizar_citas(request, id):
 
 #CRUD MANICURISTA
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def ver_manicurista(request):
     m = Manicurista.objects.all()
     contexto = {
@@ -770,7 +965,7 @@ def ver_manicurista(request):
     }
     return render(request,"manicurista/manicuristas.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def crear_manicurista(request):
     if request.method == "POST":
         password = request.POST.get("password")
@@ -838,7 +1033,7 @@ def crear_manicurista(request):
     return render(request, "manicurista/crear_manicurista.html")
    
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def eliminar_manicurista(request, id):
     try:
         m = Manicurista.objects.get(pk=id)
@@ -852,7 +1047,7 @@ def eliminar_manicurista(request, id):
         messages.error(request,f"Error: {e}")
     return redirect("agenda:manicuristas")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def actualizar_manicurista(request, id):
     if request.method == "POST":
         try:
@@ -887,7 +1082,7 @@ def ver_servicio(request):
     }
     return render(request,"servicio/servicios.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def crear_servicio(request):
     if request.method == "POST":
         try:
@@ -907,7 +1102,7 @@ def crear_servicio(request):
         return render(request,"servicio/formulario_servicio.html")
    
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def eliminar_servicio(request, id):
     try:
         s = Servicios.objects.get(pk=id)
@@ -921,7 +1116,7 @@ def eliminar_servicio(request, id):
         messages.error(request,f"Error: {e}")
     return redirect("agenda:servicios")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def actualizar_servicio(request, id):
     if request.method == "POST":
         try:
@@ -945,7 +1140,7 @@ def actualizar_servicio(request, id):
 
 
 #CRUD INVENTARIO
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def ver_inventario(request):
     i = Inventario.objects.all()
     contexto = {
@@ -953,7 +1148,7 @@ def ver_inventario(request):
     }
     return render(request, "inventario/inventario.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def crear_inventario(request):
     if request.method == "POST":
         try:
@@ -973,7 +1168,7 @@ def crear_inventario(request):
     else:
         return render(request,"inventario/formulario_inventario.html")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def eliminar_inventario(request, id):
     try:
         i = Inventario.objects.get(pk=id)
@@ -987,7 +1182,7 @@ def eliminar_inventario(request, id):
         messages.error(request,f"Error: {e}")
     return redirect("agenda:inventario")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def actualizar_inventario(request, id):
     if request.method == "POST":
         try:
@@ -1021,7 +1216,7 @@ def recibo(request, id):
     return render(request,"recibo/recibo.html", contexto)
 
 #CRUD GASTOS
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def ver_gasto(request):
     g = Gastos.objects.all()
     contexto = {
@@ -1029,7 +1224,7 @@ def ver_gasto(request):
     }
     return render(request, "gastos/gastos.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def crear_gastos(request):
     if request.method == "POST":
         try:
@@ -1049,7 +1244,7 @@ def crear_gastos(request):
     else:
         return render(request,"gastos/formulario_gastos.html")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def eliminar_gastos(request, id):
     try:
         g = Gastos.objects.get(pk=id)
@@ -1063,7 +1258,7 @@ def eliminar_gastos(request, id):
         messages.error(request,f"Error: {e}")
     return redirect("agenda:gastos")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def actualizar_gastos(request, id):
     if request.method == "POST":
         try:
@@ -1085,7 +1280,7 @@ def actualizar_gastos(request, id):
         }
         return render(request,"gastos/formulario_gastos.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def ver_pagos (request):
     p =Pagos.objects.all()
 
@@ -1095,7 +1290,7 @@ def ver_pagos (request):
 
     return render(request, "pago/pago.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def crear_pago(request):
     if request.method  == "POST":
         try:
@@ -1129,7 +1324,7 @@ def crear_pago(request):
         }
         return render(request, "pago/formulario_pago.html", contexto)
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR", "CLIENTE")
 def eliminar_pago(request, id):
     try: 
         p =  Pagos.objects.get(pk=id)
@@ -1139,7 +1334,7 @@ def eliminar_pago(request, id):
         messages.error(request, f"Error: {e}")
     return redirect("agenda:pagos")
 
-@requiere_rol("ADMINISTRADOR")
+@requiere_rol("ADMINISTRADOR","CLIENTE")
 def actualizar_pago(request, id):
 
     pago = get_object_or_404(
