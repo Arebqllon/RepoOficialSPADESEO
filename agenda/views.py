@@ -409,44 +409,77 @@ def editar_perfil(request):
 
 def login(request):
     if request.method == "POST":
-        usuario = request.POST.get("user")
-        clave = request.POST.get("password")
 
-        # Autenticar utilizando el sistema de usuarios de Django
+        # El formulario envía el correo en el campo "user"
+        correo = request.POST.get("user", "").strip()
+        clave = request.POST.get("password", "")
+
+        if not correo or not clave:
+            messages.error(
+                request,
+                "Debes ingresar el correo y la contraseña."
+            )
+            return redirect("agenda:login")
+
+        # Buscar el usuario por correo
+        try:
+            usuario = User.objects.get(email__iexact=correo)
+        except User.DoesNotExist:
+            messages.error(
+                request,
+                "Credenciales inválidas"
+            )
+            return redirect("agenda:login")
+
+        # Autenticar utilizando el username real de Django
         user = authenticate(
             request,
-            username=usuario,
+            username=usuario.username,
             password=clave
         )
 
-        # Verificar que las credenciales sean correctas
-        if user is not None:
+        if user is None:
+            messages.error(
+                request,
+                "Credenciales inválidas"
+            )
+            return redirect("agenda:login")
 
-            # Verificar que tenga un PerfilUsuario y un Rol
-            try:
-                rol = user.perfil.rol.nombre.capitalize()
-            except (AttributeError, PerfilUsuario.DoesNotExist):
-                messages.error(
-                    request,
-                    "El usuario no tiene un rol asignado."
-                )
-                return redirect("agenda:login")
+        # Verificar que tenga perfil
+        try:
+            perfil = user.perfil
+        except (AttributeError, PerfilUsuario.DoesNotExist):
+            messages.error(
+                request,
+                "El usuario no tiene un perfil asignado."
+            )
+            return redirect("agenda:login")
 
-            # Iniciar sesión con Django
-            auth_login(request, user)
+        # Verificar que tenga rol
+        if not perfil.rol:
+            messages.error(
+                request,
+                "El usuario no tiene un rol asignado."
+            )
+            return redirect("agenda:login")
 
-            # Mantener temporalmente tu sesión actual
-            request.session["logueado"] = {
-                "id": user.id,
-                "nombre": user.get_full_name() or user.username,
-                "rol": rol
-            }
+        rol = perfil.rol.nombre.capitalize()
 
-            return redirect("agenda:dashboard")
+        # Iniciar sesión con Django
+        auth_login(request, user)
 
-        # Si las credenciales no son correctas
-        messages.error(request, "Credenciales inválidas")
-        return redirect("agenda:login")
+        # Crear sesión compatible con el sistema anterior
+        request.session["logueado"] = {
+            "id": user.id,
+            "nombre": user.first_name or user.username,
+            "apellido": user.last_name or "",
+            "rol": rol,
+            "email": user.email,
+        }
+
+        request.session.modified = True
+
+        return redirect("agenda:dashboard")
 
     return render(request, "login.html")
 
@@ -965,20 +998,37 @@ def ver_manicurista(request):
     }
     return render(request,"manicurista/manicuristas.html", contexto)
 
-@requiere_rol("ADMINISTRADOR", "CLIENTE")
+@requiere_rol("ADMINISTRADOR")
 def crear_manicurista(request):
-    if request.method == "POST":
-        password = request.POST.get("password")
-        email = request.POST.get("email")
 
+    if request.method == "POST":
+
+        password = request.POST.get("password")
+        email = request.POST.get("email", "").strip().lower()
+
+        nombre = request.POST.get("nombre", "").strip()
+        apellido = request.POST.get("apellido", "").strip()
+        telefono = request.POST.get("telefono", "").strip()
+        especialidad = request.POST.get("especialidad", "").strip()
+        fecha_ingreso = request.POST.get("fecha_ingreso")
+
+        # Validar contraseña
         error = validar_password(password)
 
         if error:
             messages.error(request, error)
             return redirect("agenda:crear_manicuristas")
 
-        # Verificar correo
-        if User.objects.filter(username=email).exists():
+        # Validar correo
+        if not email:
+            messages.error(
+                request,
+                "El correo electrónico es obligatorio."
+            )
+            return redirect("agenda:crear_manicuristas")
+
+        # Verificar que no exista el correo
+        if User.objects.filter(email__iexact=email).exists():
             messages.error(
                 request,
                 "Ya existe un usuario registrado con ese correo."
@@ -986,51 +1036,65 @@ def crear_manicurista(request):
             return redirect("agenda:crear_manicuristas")
 
         try:
+
             with transaction.atomic():
 
                 # 1. Crear usuario Django
-                user = User(
+                user = User.objects.create_user(
                     username=email,
                     email=email,
-                    first_name=request.POST.get("nombre"),
-                    last_name=request.POST.get("apellido")
+                    password=password,
+                    first_name=nombre,
+                    last_name=apellido
                 )
 
-                # 2. Contraseña segura
-                user.set_password(password)
-                user.save()
+                # 2. Buscar rol
+                rol = Rol.objects.get(
+                    nombre__iexact="MANICURISTA"
+                )
 
-                # 3. Buscar rol MANICURISTA
-                rol = Rol.objects.get(nombre="MANICURISTA")
-
-                # 4. Crear perfil
+                # 3. Crear perfil
                 PerfilUsuario.objects.create(
                     user=user,
                     rol=rol
                 )
 
-                # 5. Crear manicurista
+                # 4. Crear manicurista
                 Manicurista.objects.create(
                     user=user,
-                    nombre=request.POST.get("nombre"),
-                    apellido=request.POST.get("apellido"),
-                    telefono=request.POST.get("telefono"),
+                    nombre=nombre,
+                    apellido=apellido,
+                    telefono=telefono,
                     email=email,
-                    especialidad=request.POST.get("especialidad"),
-                    fecha_ingreso=request.POST.get("fecha_ingreso")
+                    especialidad=especialidad,
+                    fecha_ingreso=fecha_ingreso
                 )
 
-            messages.success(request,"Manicurista registrada correctamente.")
+            messages.success(
+                request,
+                "Manicurista registrada correctamente."
+            )
 
             return redirect("agenda:login")
 
         except Rol.DoesNotExist:
-            messages.error(request,"El rol MANICURISTA no existe. Créalo primero.")
+
+            messages.error(
+                request,
+                "El rol MANICURISTA no existe. Créalo primero."
+            )
 
         except Exception as e:
-            messages.error(request,f"Error al crear la manicurista: {e}")
 
-    return render(request, "manicurista/crear_manicurista.html")
+            messages.error(
+                request,
+                f"Error al crear la manicurista: {e}"
+            )
+
+    return render(
+        request,
+        "manicurista/crear_manicurista.html"
+    )
    
 
 @requiere_rol("ADMINISTRADOR", "CLIENTE")
